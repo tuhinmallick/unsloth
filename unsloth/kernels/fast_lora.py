@@ -39,8 +39,6 @@ def matmul_lora(X, W, W_quant, A, B, s, out = None):
         reshape = True
     else:
         reshape = False
-    pass
-
     out = torch.matmul(X, W, out = out)
     if W_quant is not None: del W
     out += (X @ A.to(dtype)) @ (s * B.to(dtype))
@@ -186,11 +184,24 @@ def apply_lora_mlp(self, X):
     gateW, gateW_quant, gateA, gateB, gateS = get_lora_parameters(self.gate_proj)
     upW,     upW_quant,   upA,   upB,   upS = get_lora_parameters(self.  up_proj)
     downW, downW_quant, downA, downB, downS = get_lora_parameters(self.down_proj)
-    out = LoRA_MLP.apply(X,
-                         gateW, gateW_quant, gateA, gateB, gateS,
-                         upW,     upW_quant, upA,   upB,   upS,
-                         downW, downW_quant, downA, downB, downS)
-    return out
+    return LoRA_MLP.apply(
+        X,
+        gateW,
+        gateW_quant,
+        gateA,
+        gateB,
+        gateS,
+        upW,
+        upW_quant,
+        upA,
+        upB,
+        upS,
+        downW,
+        downW_quant,
+        downA,
+        downB,
+        downS,
+    )
 pass
 
 
@@ -409,6 +420,5 @@ pass
 
 def apply_lora_o(self, X):
     OW, OW_quant, OA, OB, OS = get_lora_parameters(self.o_proj)
-    O = LoRA_W.apply(X, OW, OW_quant, OA, OB, OS)
-    return O
+    return LoRA_W.apply(X, OW, OW_quant, OA, OB, OS)
 pass
