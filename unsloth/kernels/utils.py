@@ -27,9 +27,6 @@ def calculate_settings(n):
     elif BLOCK_SIZE >=  8192: num_warps = 16
     elif BLOCK_SIZE >=  2048: num_warps = 8
     return BLOCK_SIZE, num_warps
-pass
-
-
 import bitsandbytes as bnb
 get_ptr = bnb.functional.get_ptr
 import ctypes
@@ -61,8 +58,6 @@ def fast_dequantize(W, quant_state = None, out = None):
         absmax, shape, dtype, blocksize, compressed_stats, _, _ = quant_state
         offset, state2 = compressed_stats
         absmax2, code2, blocksize2, _, _, _, _ = state2
-    pass
-
     # Create weight matrix
     if out is None:
         out = torch.empty(shape, dtype = dtype, device = "cuda")
@@ -88,6 +83,6 @@ def fast_dequantize(W, quant_state = None, out = None):
        ctypes.c_int(blocksize), ctypes.c_int(out.numel()))
 
     # Careful returning transposed data
-    is_transposed = (True if W.shape[0] == 1 else False)
+    is_transposed = W.shape[0] == 1
     return out.t() if is_transposed else out
 pass

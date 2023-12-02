@@ -36,8 +36,6 @@ if major_version >= 8:
 else:
     # Tri Dao's benchmark shows xformers is faster for now.
     HAS_FLASH_ATTENTION = False
-pass
-
 import xformers.ops.fmha as xformers
 xformers_attention = xformers.memory_efficient_attention
 
@@ -47,7 +45,7 @@ from transformers.models.llama.modeling_llama import (
     LlamaDecoderLayer,
     LlamaModel,
     LlamaForCausalLM,
-) 
+)
 from peft import PeftModelForCausalLM
 import gc
 import peft
@@ -72,8 +70,7 @@ pass
 
 
 def original_apply_o(self, X):
-    O = self.o_proj(X)
-    return O
+    return self.o_proj(X)
 pass
 
 
@@ -121,8 +118,6 @@ def LlamaAttention_fast_forward(
     else:
         cos, sin = self.rotary_emb(V, seq_len = kv_seq_len)
         Q, K = inplace_rope_embedding(Q, K, cos, sin, position_ids)
-    pass
-
     if past_key_value is not None:
         # reuse k, v, self_attention
         K = torch.cat([past_key_value[0], K], dim = 2)
@@ -149,12 +144,10 @@ def LlamaAttention_fast_forward(
             V = V.reshape(bsz, q_len, n_groups,          1, head_dim)
             K = K .expand(bsz, q_len, n_groups, n_kv_heads, head_dim)
             V = V .expand(bsz, q_len, n_groups, n_kv_heads, head_dim)
-        pass
-
         A = xformers_attention(Q, K, V, attn_bias = causal_mask)
         A = A.view(bsz, q_len, n_heads, head_dim)
 
-    elif HAS_FLASH_ATTENTION:# and no_attention_mask:
+    else:
         # Flash Attention
         # (batch_size, n_heads, seq_len, head_dim) -> (batch_size, seq_len, n_heads, head_dim)
         Q = Q.transpose(1, 2)
@@ -164,31 +157,6 @@ def LlamaAttention_fast_forward(
         # Flash Attention v2 auto supports grouped query attention
         A = flash_attn_func(Q, K, V, causal = True)
 
-    else:
-        # Uses Pytorch's scaled dot product attention
-        if attention_mask is not None:
-            if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
-                raise ValueError(
-                    f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
-                )
-        pass
-
-        # Grouped query attention
-        # K = repeat_kv(K, n_groups)
-        # V = repeat_kv(V, n_groups)
-        if n_groups != 1:
-            K = K[:, :, None, :, :].expand(bsz, n_kv_heads, n_groups, q_len, head_dim)
-            V = V[:, :, None, :, :].expand(bsz, n_kv_heads, n_groups, q_len, head_dim)
-            K = K.reshape(bsz, n_heads, q_len, head_dim)
-            V = V.reshape(bsz, n_heads, q_len, head_dim)
-        pass
-
-        # Needs (batch_size, n_heads, seq_len, head_dim)
-        # is_casual and attention_mask must not be both set!
-        A = scaled_dot_product_attention(Q, K, V, attn_mask = attention_mask, is_causal = attention_mask is None)
-        # Go back to (batch_size, seq_len, n_heads, head_dim)
-        A = A.transpose(1, 2)
-    pass
     attn_output = A.reshape(bsz, q_len, self.hidden_size)
 
     # attn_output = self.o_proj(attn_output)
@@ -333,16 +301,10 @@ def LlamaModel_fast_forward(
         # )
         padding_mask = None
     else:
-        if 0 in attention_mask:
-            padding_mask = attention_mask
-        else:
-            padding_mask = None
-
+        padding_mask = attention_mask if 0 in attention_mask else None
         attention_mask = _prepare_4d_causal_attention_mask(
             attention_mask, (batch_size, seq_length), inputs_embeds, past_key_values_length
         )
-    pass
-
     hidden_states = inputs_embeds
 
     if self.gradient_checkpointing and self.training:
@@ -351,8 +313,6 @@ def LlamaModel_fast_forward(
                 "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
             )
             use_cache = False
-    pass
-
     # decoder layers
     all_hidden_states = () if output_hidden_states else None
     all_self_attns = () if output_attentions else None
@@ -401,8 +361,6 @@ def LlamaModel_fast_forward(
 
         if output_attentions:
             all_self_attns += (layer_outputs[1],)
-    pass
-
     # hidden_states = self.norm(hidden_states)
     hidden_states = fast_rms_layernorm(self.norm, hidden_states)
 
@@ -483,8 +441,6 @@ def LlamaForCausalLM_fast_forward(
             logits = shift_logits,
             labels = shift_labels,
         )
-    pass
-
     if not return_dict:
         output = (logits,) + outputs[1:]
         return (loss,) + output if loss is not None else output
@@ -553,11 +509,11 @@ class FastLlamaModel:
         SUPPORTS_BFLOAT16 = torch.cuda.is_bf16_supported()
 
         statistics = \
-            "==((====))==  Unsloth: Fast Llama patching release 23.11\n"\
-           f"   \\\   /|    GPU: {gpu_stats.name}. Max memory: {max_memory} GB\n"\
-           f"O^O/ \_/ \\    CUDA compute capability = {gpu_stats.major}.{gpu_stats.minor}\n"\
-           f"\        /    Pytorch version: {torch.__version__}. CUDA Toolkit = {torch.version.cuda}\n"\
-           f' "-____-"     bfloat16 support = {str(SUPPORTS_BFLOAT16).upper()}\n'
+                "==((====))==  Unsloth: Fast Llama patching release 23.11\n"\
+               f"   \\\   /|    GPU: {gpu_stats.name}. Max memory: {max_memory} GB\n"\
+               f"O^O/ \_/ \\    CUDA compute capability = {gpu_stats.major}.{gpu_stats.minor}\n"\
+               f"\        /    Pytorch version: {torch.__version__}. CUDA Toolkit = {torch.version.cuda}\n"\
+               f' "-____-"     bfloat16 support = {str(SUPPORTS_BFLOAT16).upper()}\n'
         print(statistics)
 
         FastLlamaModel.pre_patch()
@@ -568,7 +524,7 @@ class FastLlamaModel:
             logger.warning_once("Device does not support bfloat16. Will change to float16.")
             dtype = torch.float16
 
-        assert(dtype == torch.float16 or dtype == torch.bfloat16 or dtype == torch.float32)
+        assert dtype in [torch.float16, torch.bfloat16, torch.float32]
 
         # [TODO]: Determine RoPE scaling
         # https://github.com/huggingface/transformers/pull/24653
@@ -603,10 +559,9 @@ class FastLlamaModel:
         model = FastLlamaModel.post_patch(model)
 
         # Patch up QKV / O and MLP
-        for idx, layer in enumerate(model.model.layers):
+        for layer in model.model.layers:
             layer.self_attn.apply_qkv = original_apply_qkv
             layer.self_attn.apply_o   = original_apply_o
-        pass
         return model, tokenizer
     pass
 
@@ -643,10 +598,6 @@ class FastLlamaModel:
                 else:
                     # https://github.com/TimDettmers/bitsandbytes/pull/763/files
                     quant_state.dtype = correct_dtype
-                pass
-            pass
-        pass
-
         # Clear deleted GPU items
         gc.collect()
         torch.cuda.empty_cache()
@@ -679,8 +630,6 @@ class FastLlamaModel:
                                       "gate_proj", "up_proj", "down_proj",),)
         for module in target_modules:
             assert(module in accepted_modules)
-        pass
-
         # Get LoRA
         lora_config = LoraConfig(
             r              = r,
@@ -700,35 +649,27 @@ class FastLlamaModel:
         model = _get_peft_model(model, lora_config)
 
         # Do patching
-        for idx, layer in enumerate(model.model.model.layers):
-
+        for layer in model.model.model.layers:
             # MLP patching
             if  hasattr(layer.mlp.gate_proj, "lora_A") and \
-                hasattr(layer.mlp.  up_proj, "lora_A") and \
-                hasattr(layer.mlp.down_proj, "lora_A"):
+                    hasattr(layer.mlp.  up_proj, "lora_A") and \
+                    hasattr(layer.mlp.down_proj, "lora_A"):
 
                 # https://stackoverflow.com/questions/50599045/python-replacing-a-function-within-a-class-of-a-module
                 layer.mlp.forward = types.MethodType(apply_lora_mlp, layer.mlp)
-            pass
-
             # QKV attention patching
             if  hasattr(layer.self_attn.q_proj, "lora_A") and \
-                hasattr(layer.self_attn.k_proj, "lora_A") and \
-                hasattr(layer.self_attn.v_proj, "lora_A"):
+                    hasattr(layer.self_attn.k_proj, "lora_A") and \
+                    hasattr(layer.self_attn.v_proj, "lora_A"):
 
                 layer.self_attn.apply_qkv = apply_lora_qkv
-            pass
-
             # O attention patching
             if hasattr(layer.self_attn.o_proj, "lora_A"):
 
                 layer.self_attn.apply_o = apply_lora_o
-            pass
-        pass
-
         # Patch cross entropy loss labels
         model.model.extra_ignored_labels = torch.full((max_seq_length, 1), -100, device = "cuda")
-        
+
         return model
     pass
 pass

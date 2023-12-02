@@ -91,10 +91,7 @@ def _cross_entropy_backward(logits_ptr, logits_row_stride,
     # https://github.com/Dao-AILab/flash-attention/commit/c79de85ffa0d19b80fa468f90c5086e837499d72
     label_idx = tl.load(labels_ptr + row_idx).to(tl.int32)
 
-    if label_idx != -100:
-        dloss = tl.load(dloss_ptr)
-    else:
-        dloss = 0.0
+    dloss = tl.load(dloss_ptr) if label_idx != -100 else 0.0
     logits = tl.load(logits_ptr + col_offsets, mask = mask, other = 0).to(tl.float32)
     lse = tl.load(lse_ptr + row_idx)
     probs = tl.exp(logits - lse)

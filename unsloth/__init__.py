@@ -38,8 +38,6 @@ else:
     warnings.warn("Unsloth: 'CUDA_VISIBLE_DEVICES' is not set. We shall set it ourselves.")
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-pass
-
 try:
     import torch
 except:
@@ -49,7 +47,7 @@ except:
 # We only support torch 2.1
 major_torch, minor_torch, _ = torch.__version__.split(".")
 major_torch, minor_torch = int(major_torch), int(minor_torch)
-if (major_torch != 2) or (major_torch == 2 and minor_torch < 1):
+if major_torch != 2 or minor_torch < 1:
     raise ImportError("Unsloth only supports Pytorch 2.1 for now. Please update your Pytorch to 2.1.\n"\
                       "We have some installation instructions on our Github page.")
 
@@ -78,6 +76,4 @@ except:
         raise ImportError("CUDA is not linked properly.\n"\
                           "We tried running `ldconfig /usr/lib64-nvidia` ourselves, but it didn't work.\n"\
                           "You need to run in your terminal `ldconfig /usr/lib64-nvidia` yourself, then import Unsloth.")
-pass
-
 from .models import *
